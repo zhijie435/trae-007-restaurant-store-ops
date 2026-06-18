@@ -24,6 +24,7 @@ class OrderService
         ?int $memberId = null,
         ?string $operator = null,
         float $discountRate = 1.0,
+        ?float $discountAmount = null,
         ?string $idempotencyKey = null
     ): Order {
         if ($idempotencyKey !== null && $idempotencyKey !== '') {

@@ -284,15 +284,13 @@ export default function MealOrder() {
       const res = await api.createOrder({
         operator: operator || undefined,
         items: cartRows,
-        discount_rate: discountRate || undefined,
-        discount_amount: discountAmount || undefined,
+        discount_rate: discountRate < 1 ? discountRate : undefined,
         idempotency_key: idempotencyKey,
       });
       setResult(res.order);
       setResultOpen(true);
       setCart({});
-      setDiscountRate(0);
-      setDiscountAmount(0);
+      setDiscountRate(1);
       message.success('下单成功,原料库存已扣减');
       await loadDishes();
       await loadOrders();
@@ -593,33 +591,26 @@ export default function MealOrder() {
 
                 <Divider style={{ margin: '8px 0' }} />
 
-                <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Text type="secondary" style={{ width: 70 }}>折扣率</Text>
-                    <InputNumber
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={discountRate}
-                      onChange={(v) => setDiscountRate(typeof v === 'number' ? v : 0)}
-                      style={{ flex: 1 }}
-                      disabled={submitting}
-                      addonAfter="%"
-                    />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Text type="secondary" style={{ width: 70 }}>减免金额</Text>
-                    <InputNumber
-                      min={0}
-                      step={1}
-                      value={discountAmount}
-                      onChange={(v) => setDiscountAmount(typeof v === 'number' ? v : 0)}
-                      style={{ flex: 1 }}
-                      disabled={submitting}
-                      prefix="¥"
-                    />
-                  </div>
-                </Space>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Text type="secondary" style={{ width: 70 }}>折扣</Text>
+                  <Select
+                    value={discountRate}
+                    onChange={(v: number) => setDiscountRate(v)}
+                    style={{ flex: 1 }}
+                    disabled={submitting}
+                    options={[
+                      { value: 1, label: '不打折' },
+                      { value: 0.95, label: '9.5折' },
+                      { value: 0.9, label: '9折' },
+                      { value: 0.85, label: '8.5折' },
+                      { value: 0.8, label: '8折' },
+                      { value: 0.75, label: '7.5折' },
+                      { value: 0.7, label: '7折' },
+                      { value: 0.6, label: '6折' },
+                      { value: 0.5, label: '5折' },
+                    ]}
+                  />
+                </div>
 
                 <Button
                   type="primary"
@@ -710,7 +701,7 @@ export default function MealOrder() {
                 key: 'status',
                 width: 90,
                 render: (v: string) =>
-                  v === '已退菜' ? <Tag color="red">已退菜</Tag> : <Tag color="green">{v}</Tag>,
+                  v === '已退' ? <Tag color="red">已退</Tag> : <Tag color="green">{v}</Tag>,
               },
               {
                 title: '下单时间',
@@ -727,7 +718,7 @@ export default function MealOrder() {
                     size="small"
                     danger
                     icon={<DeleteOutlined />}
-                    disabled={r.status === '已退菜' || r.item_count === 0}
+                    disabled={r.status === '已退' || r.item_count === 0}
                     onClick={() => openRefund(r)}
                   >
                     退菜
