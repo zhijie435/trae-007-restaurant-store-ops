@@ -83,25 +83,26 @@ class OrderService
             throw new InvalidArgumentException('包含无效或已下架的菜品');
         }
 
-        $consumption = collect();
+        $consumption = [];
         foreach ($parsed as $row) {
             /** @var Dish $dish */
             $dish = $dishes[$row['dish_id']];
             $qty = $row['quantity'];
             /** @var DishIngredient $recipe */
             foreach ($dish->ingredients as $recipe) {
-                $existing = $consumption->get($recipe->ingredient_id);
+                $ingredientId = $recipe->ingredient_id;
                 $need = round($recipe->quantity * $qty, 4);
-                if ($existing) {
-                    $existing['quantity'] += $need;
+                if (isset($consumption[$ingredientId])) {
+                    $consumption[$ingredientId]['quantity'] += $need;
                 } else {
-                    $consumption->put($recipe->ingredient_id, [
-                        'ingredient_id' => $recipe->ingredient_id,
+                    $consumption[$ingredientId] = [
+                        'ingredient_id' => $ingredientId,
                         'quantity' => $need,
-                    ]);
+                    ];
                 }
             }
         }
+        $consumption = collect($consumption);
 
         $ingredientIds = $consumption->pluck('ingredient_id')->all();
         /** @var Ingredient[] $ingredients */
