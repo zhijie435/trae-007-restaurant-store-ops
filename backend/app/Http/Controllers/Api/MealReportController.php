@@ -17,7 +17,7 @@ class MealReportController extends Controller
 
         $orders = Order::whereDate('created_at', $dateStr)->where('status', '已完成');
         $orderCount = (int) $orders->count();
-        $revenue = (float) $orders->sum('total_amount');
+        $revenue = (float) $orders->sum('actual_amount');
         $memberOrders = (int) Order::whereDate('created_at', $dateStr)
             ->where('status', '已完成')->whereNotNull('member_id')->count();
         $avgOrderValue = $orderCount > 0 ? round($revenue / $orderCount, 2) : 0;
@@ -25,7 +25,7 @@ class MealReportController extends Controller
         $topDishes = OrderItem::whereHas('order', function ($q) use ($dateStr) {
             $q->whereDate('created_at', $dateStr)->where('status', '已完成');
         })
-            ->selectRaw('dish_id, sum(quantity) as total_qty, sum(subtotal) as total_amount')
+            ->selectRaw('dish_id, sum(quantity - refunded_quantity) as total_qty, sum(subtotal - refunded_amount) as total_amount')
             ->with('dish:id,name,price')
             ->groupBy('dish_id')
             ->orderByDesc('total_qty')
@@ -39,7 +39,7 @@ class MealReportController extends Controller
 
         $hourlyRaw = Order::whereDate('created_at', $dateStr)
             ->where('status', '已完成')
-            ->selectRaw("strftime('%H', created_at) as hour, count(*) as count, sum(total_amount) as revenue")
+            ->selectRaw("strftime('%H', created_at) as hour, count(*) as count, sum(actual_amount) as revenue")
             ->groupBy('hour')
             ->get()
             ->keyBy('hour');

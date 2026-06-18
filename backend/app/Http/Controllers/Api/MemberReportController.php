@@ -16,9 +16,9 @@ class MemberReportController extends Controller
         $dateStr = $date->toDateString();
 
         $newMembers = (int) Member::whereDate('created_at', $dateStr)->count();
-        $activeMembers = (int) MemberTransaction::where('type', '消费')
+        $activeMembers = (int) MemberTransaction::whereIn('type', ['消费', '退款'])
             ->whereDate('created_at', $dateStr)->distinct('member_id')->count('member_id');
-        $consumption = (float) MemberTransaction::where('type', '消费')
+        $consumption = (float) MemberTransaction::whereIn('type', ['消费', '退款'])
             ->whereDate('created_at', $dateStr)->sum('amount');
         $recharge = (float) MemberTransaction::where('type', '充值')
             ->whereDate('created_at', $dateStr)->sum('amount');

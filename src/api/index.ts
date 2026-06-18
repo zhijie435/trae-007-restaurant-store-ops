@@ -8,6 +8,10 @@ import type {
   InventoryReport,
   MealReport,
   MemberReport,
+  OrderListResponse,
+  OrderDetail,
+  ReturnDishRequest,
+  ReturnDishResponse,
 } from '@/types';
 
 const client = axios.create({
@@ -40,5 +44,11 @@ export const api = {
     client.patch<unknown, { id: number; is_active: boolean }>(`/dishes/${id}/toggle`),
   createOrder: (payload: CreateOrderRequest) =>
     client.post<unknown, CreateOrderResponse>('/orders', payload),
+  orderList: (params?: { date?: string; page?: number; per_page?: number }) =>
+    client.get<unknown, OrderListResponse>('/orders', { params }),
+  orderDetail: (id: number) =>
+    client.get<unknown, OrderDetail>(`/orders/${id}`),
+  returnDish: (id: number, payload: ReturnDishRequest) =>
+    client.post<unknown, ReturnDishResponse>(`/orders/${id}/return`, payload),
 };
 

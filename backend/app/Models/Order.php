@@ -8,7 +8,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
-    protected $fillable = ['store_id', 'order_no', 'member_id', 'total_amount', 'status'];
+    protected $fillable = [
+        'store_id',
+        'order_no',
+        'member_id',
+        'total_amount',
+        'discount_rate',
+        'discount_amount',
+        'actual_amount',
+        'idempotency_key',
+        'status',
+    ];
 
     public function store(): BelongsTo
     {
@@ -23,5 +33,10 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function returns(): HasMany
+    {
+        return $this->hasMany(OrderReturn::class);
     }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -10,6 +10,7 @@ import {
   InputNumber,
   Modal,
   Row,
+  Select,
   Space,
   Spin,
   Switch,
@@ -19,11 +20,23 @@ import {
   Typography,
   message,
 } from 'antd';
-import { MinusOutlined, PauseCircleOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons';
+import {
+  DeleteOutlined,
+  MinusOutlined,
+  PauseCircleOutlined,
+  PlusOutlined,
+  ShopOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '@/api';
 import { formatCurrency } from '@/utils/format';
-import type { CreateOrderResponse, Dish } from '@/types';
+import type {
+  CreateOrderResponse,
+  Dish,
+  OrderDetail,
+  OrderListItem,
+} from '@/types';
 
 const { Title, Text } = Typography;
 
@@ -47,6 +60,7 @@ export default function MealOrder() {
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
   const [operator, setOperator] = useState('张三');
   const [cart, setCart] = useState<Record<number, number>>({});
   const [result, setResult] = useState<CreateOrderResponse['order'] | null>(null);
@@ -54,6 +68,17 @@ export default function MealOrder() {
   const [error, setError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(true);
   const [soldOutIds, setSoldOutIds] = useState<Set<number>>(new Set());
+  const [discountRate, setDiscountRate] = useState<number>(1);
+
+  const submittingRef = useRef(false);
+  const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundDetail, setRefundDetail] = useState<OrderDetail | null>(null);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundItemId, setRefundItemId] = useState<number | null>(null);
+  const [refundQty, setRefundQty] = useState(1);
+  const [refundReason, setRefundReason] = useState('');
 
   async function loadDishes() {
     let canceled = false;
@@ -61,7 +86,11 @@ export default function MealOrder() {
     setError(null);
     try {
       const data = await api.dishes(showInactive);
-      if (!canceled) setDishes(data);
+      if (!canceled) {
+        setDishes(data);
+        const inactive = new Set(data.filter((d) => !d.is_active).map((d) => d.id));
+        setSoldOutIds(inactive);
+      }
     } catch (e) {
       if (!canceled) setError((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? (e as Error).message ?? '加载菜品失败');
     } finally {
@@ -72,30 +101,52 @@ export default function MealOrder() {
     };
   }
 
+  async function loadOrders() {
+    setOrdersLoading(true);
+    try {
+      const res = await api.orderList({ per_page: 10 });
+      setOrders(res.items);
+    } catch {
+      // ignore
+    } finally {
+      setOrdersLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadDishes();
+    loadOrders();
   }, [showInactive]);
 
-  function handleToggle(dish: Dish) {
-    const willSoldOut = !soldOutIds.has(dish.id) && dish.is_active;
-    setSoldOutIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(dish.id)) {
-        next.delete(dish.id);
+  async function handleToggle(dish: Dish) {
+    if (togglingId !== null) return;
+
+    setTogglingId(dish.id);
+    try {
+      const res = await api.toggleDish(dish.id);
+      setDishes((prev) =>
+        prev.map((d) => (d.id === dish.id ? { ...d, is_active: res.is_active } : d)),
+      );
+      if (!res.is_active) {
+        setSoldOutIds((prev) => new Set(prev).add(dish.id));
+        setCart((prev) => {
+          const copy = { ...prev };
+          delete copy[dish.id];
+          return copy;
+        });
+        message.success('菜品已售罄');
       } else {
-        next.add(dish.id);
+        setSoldOutIds((prev) => {
+          const next = new Set(prev);
+          next.delete(dish.id);
+          return next;
+        });
+        message.success('菜品已上架');
       }
-      return next;
-    });
-    if (willSoldOut) {
-      setCart((prev) => {
-        const copy = { ...prev };
-        delete copy[dish.id];
-        return copy;
-      });
-      message.success('菜品已售罄');
-    } else {
-      message.success('菜品已上架');
+    } catch (e) {
+      message.error('操作失败，请稍后重试');
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -123,6 +174,14 @@ export default function MealOrder() {
       return sum + (dish ? dish.price * row.quantity : 0);
     }, 0);
   }, [cartRows, dishes]);
+
+  const actualAmount = useMemo(() => {
+    return Math.round(totalAmount * discountRate * 100) / 100;
+  }, [totalAmount, discountRate]);
+
+  const discountTotal = useMemo(() => {
+    return Math.round((totalAmount - actualAmount) * 100) / 100;
+  }, [totalAmount, actualAmount]);
 
   const consumption: IngredientConsumption[] = useMemo(() => {
     const map = new Map<number, IngredientConsumption>();
@@ -161,6 +220,17 @@ export default function MealOrder() {
 
   const lowStock = consumption.some((c) => c.after_stock < 0);
 
+  const refundableItems = useMemo(() => {
+    if (!refundDetail) return [];
+    return refundDetail.items.filter((it) => it.quantity - it.refunded_quantity > 0);
+  }, [refundDetail]);
+
+  const refundMaxQty = useMemo(() => {
+    if (!refundDetail || refundItemId === null) return 1;
+    const item = refundDetail.items.find((it) => it.id === refundItemId);
+    return item ? item.quantity - item.refunded_quantity : 1;
+  }, [refundDetail, refundItemId]);
+
   function changeQty(dishId: number, delta: number) {
     setCart((prev) => {
       const current = prev[dishId] ?? 0;
@@ -181,36 +251,51 @@ export default function MealOrder() {
     });
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
+    if (submittingRef.current) return;
     if (cartRows.length === 0) {
       message.warning('请先选择菜品');
       return;
     }
     if (lowStock) {
+      submittingRef.current = true;
+      setSubmitting(true);
       Modal.confirm({
         title: '确认提交?',
         content: '下单后部分原料库存会变为负数,建议先补充库存。是否仍然继续提交?',
         okText: '继续提交',
         cancelText: '再检查一下',
-        onOk: doSubmit,
+        onOk: () => doSubmit(),
+        onCancel: () => {
+          submittingRef.current = false;
+          setSubmitting(false);
+        },
       });
       return;
     }
-    await doSubmit();
+    submittingRef.current = true;
+    doSubmit();
   }
 
   async function doSubmit() {
     setSubmitting(true);
     try {
+      const idempotencyKey = `order-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const res = await api.createOrder({
         operator: operator || undefined,
         items: cartRows,
+        discount_rate: discountRate || undefined,
+        discount_amount: discountAmount || undefined,
+        idempotency_key: idempotencyKey,
       });
       setResult(res.order);
       setResultOpen(true);
       setCart({});
+      setDiscountRate(0);
+      setDiscountAmount(0);
       message.success('下单成功,原料库存已扣减');
       await loadDishes();
+      await loadOrders();
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -218,6 +303,58 @@ export default function MealOrder() {
       message.error(msg);
     } finally {
       setSubmitting(false);
+      submittingRef.current = false;
+    }
+  }
+
+  async function openRefund(order: OrderListItem) {
+    setRefundOpen(true);
+    setRefundDetail(null);
+    setRefundItemId(null);
+    setRefundQty(1);
+    setRefundReason('');
+    try {
+      const detail = await api.orderDetail(order.id);
+      setRefundDetail(detail);
+      const first = detail.items.find((it) => it.quantity - it.refunded_quantity > 0);
+      if (first) {
+        setRefundItemId(first.id);
+        setRefundQty(1);
+      }
+    } catch {
+      message.error('加载订单详情失败');
+      setRefundOpen(false);
+    }
+  }
+
+  async function doRefund() {
+    if (!refundDetail || refundItemId === null) {
+      message.warning('请选择要退菜的菜品');
+      return;
+    }
+    if (refundQty <= 0 || refundQty > refundMaxQty) {
+      message.warning(`退菜数量必须在 1-${refundMaxQty} 之间`);
+      return;
+    }
+    setRefundLoading(true);
+    try {
+      await api.returnDish(refundDetail.id, {
+        order_item_id: refundItemId,
+        quantity: refundQty,
+        reason: refundReason || undefined,
+        operator: operator || undefined,
+      });
+      message.success('退菜成功,原料已退回库存');
+      setRefundOpen(false);
+      await loadOrders();
+      await loadDishes();
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        '退菜失败,请稍后重试';
+      message.error(msg);
+    } finally {
+      setRefundLoading(false);
     }
   }
 
@@ -350,6 +487,7 @@ export default function MealOrder() {
                                     size="small"
                                     danger={!isInactive}
                                     onClick={() => handleToggle(dish)}
+                                    loading={togglingId === dish.id}
                                     style={{ padding: '0 4px', height: 24 }}
                                   >
                                     {isInactive ? '上架' : '售罄'}
@@ -359,14 +497,14 @@ export default function MealOrder() {
                                   <Button
                                     shape="circle"
                                     icon={<MinusOutlined />}
-                                    disabled={qty === 0 || isInactive}
+                                    disabled={qty === 0 || isInactive || submitting}
                                     onClick={() => changeQty(dish.id, -1)}
                                   />
                                   <InputNumber
                                     min={0}
                                     value={qty}
                                     controls={false}
-                                    disabled={isInactive}
+                                    disabled={isInactive || submitting}
                                     onChange={(v) => setQty(dish.id, typeof v === 'number' ? v : null)}
                                     style={{ width: 48, textAlign: 'center' }}
                                   />
@@ -374,7 +512,7 @@ export default function MealOrder() {
                                     type="primary"
                                     shape="circle"
                                     icon={<PlusOutlined />}
-                                    disabled={isInactive}
+                                    disabled={isInactive || submitting}
                                     onClick={() => changeQty(dish.id, 1)}
                                   />
                                 </Space.Compact>
@@ -403,7 +541,7 @@ export default function MealOrder() {
             style={{ borderRadius: 12, position: 'sticky', top: 88 }}
             extra={
               <Text strong style={{ color: '#00857C', fontSize: 18 }}>
-                {formatCurrency(totalAmount)}
+                {formatCurrency(actualAmount)}
               </Text>
             }
           >
@@ -437,18 +575,59 @@ export default function MealOrder() {
                 })}
                 <Divider style={{ margin: '8px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text type="secondary">原价合计</Text>
+                  <Text>{formatCurrency(totalAmount)}</Text>
+                </div>
+                {discountTotal > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Text type="secondary">优惠折扣</Text>
+                    <Text type="danger">-{formatCurrency(discountTotal)}</Text>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Text type="secondary">应收金额</Text>
                   <Text strong style={{ fontSize: 18, color: '#00857C' }}>
-                    {formatCurrency(totalAmount)}
+                    {formatCurrency(actualAmount)}
                   </Text>
                 </div>
+
+                <Divider style={{ margin: '8px 0' }} />
+
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Text type="secondary" style={{ width: 70 }}>折扣率</Text>
+                    <InputNumber
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={discountRate}
+                      onChange={(v) => setDiscountRate(typeof v === 'number' ? v : 0)}
+                      style={{ flex: 1 }}
+                      disabled={submitting}
+                      addonAfter="%"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Text type="secondary" style={{ width: 70 }}>减免金额</Text>
+                    <InputNumber
+                      min={0}
+                      step={1}
+                      value={discountAmount}
+                      onChange={(v) => setDiscountAmount(typeof v === 'number' ? v : 0)}
+                      style={{ flex: 1 }}
+                      disabled={submitting}
+                      prefix="¥"
+                    />
+                  </div>
+                </Space>
+
                 <Button
                   type="primary"
                   size="large"
                   block
                   loading={submitting}
                   onClick={handleSubmit}
-                  style={{ height: 44, fontWeight: 600 }}
+                  style={{ height: 44, fontWeight: 600, marginTop: 8 }}
                 >
                   确认出餐并扣减库存
                 </Button>
@@ -474,6 +653,92 @@ export default function MealOrder() {
         </Col>
       </Row>
 
+      <Card
+        title={
+          <Space>
+            <UnorderedListOutlined />
+            <span>最近订单</span>
+            <Tag color="blue">{orders.length}</Tag>
+          </Space>
+        }
+        extra={
+          <Button size="small" onClick={loadOrders} loading={ordersLoading}>
+            刷新
+          </Button>
+        }
+        variant="borderless"
+        style={{ borderRadius: 12, marginTop: 16 }}
+      >
+        {orders.length === 0 ? (
+          <Empty description="暂无订单" />
+        ) : (
+          <Table<OrderListItem>
+            rowKey="id"
+            size="small"
+            dataSource={orders}
+            pagination={false}
+            scroll={{ x: 720 }}
+            columns={[
+              { title: '订单号', dataIndex: 'order_no', key: 'order_no', ellipsis: true },
+              {
+                title: '原价',
+                dataIndex: 'total_amount',
+                key: 'total_amount',
+                width: 100,
+                align: 'right' as const,
+                render: (v: number) => formatCurrency(v),
+              },
+              {
+                title: '优惠',
+                dataIndex: 'discount_amount',
+                key: 'discount_amount',
+                width: 90,
+                align: 'right' as const,
+                render: (v: number) => (v > 0 ? <Text type="danger">-{formatCurrency(v)}</Text> : '-'),
+              },
+              {
+                title: '实付',
+                dataIndex: 'actual_amount',
+                key: 'actual_amount',
+                width: 100,
+                align: 'right' as const,
+                render: (v: number) => <Text strong style={{ color: '#00857C' }}>{formatCurrency(v)}</Text>,
+              },
+              {
+                title: '状态',
+                dataIndex: 'status',
+                key: 'status',
+                width: 90,
+                render: (v: string) =>
+                  v === '已退菜' ? <Tag color="red">已退菜</Tag> : <Tag color="green">{v}</Tag>,
+              },
+              {
+                title: '下单时间',
+                dataIndex: 'created_at',
+                key: 'created_at',
+                width: 160,
+              },
+              {
+                title: '操作',
+                key: 'action',
+                width: 90,
+                render: (_, r) => (
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    disabled={r.status === '已退菜' || r.item_count === 0}
+                    onClick={() => openRefund(r)}
+                  >
+                    退菜
+                  </Button>
+                ),
+              },
+            ]}
+          />
+        )}
+      </Card>
+
       <Modal
         title="下单成功"
         open={resultOpen}
@@ -492,9 +757,19 @@ export default function MealOrder() {
                 <Text strong copyable>{result.order_no}</Text>
               </div>
               <div>
-                <Text type="secondary">订单金额 </Text>
+                <Text type="secondary">原价 </Text>
+                <Text>{formatCurrency(result.total_amount)}</Text>
+              </div>
+              {result.discount_amount > 0 && (
+                <div>
+                  <Text type="secondary">优惠 </Text>
+                  <Text type="danger">-{formatCurrency(result.discount_amount)}</Text>
+                </div>
+              )}
+              <div>
+                <Text type="secondary">实付金额 </Text>
                 <Text strong style={{ color: '#00857C', fontSize: 18 }}>
-                  {formatCurrency(result.total_amount)}
+                  {formatCurrency(result.actual_amount)}
                 </Text>
               </div>
               {result.member_name && (
@@ -531,6 +806,107 @@ export default function MealOrder() {
                 },
               ]}
             />
+          </>
+        )}
+      </Modal>
+
+      <Modal
+        title="退菜"
+        open={refundOpen}
+        onCancel={() => setRefundOpen(false)}
+        confirmLoading={refundLoading}
+        onOk={doRefund}
+        okText="确认退菜"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+        width={560}
+      >
+        {!refundDetail ? (
+          <div style={{ textAlign: 'center', padding: 24 }}>
+            <Spin />
+          </div>
+        ) : (
+          <>
+            <Space direction="vertical" size={4} style={{ width: '100%', marginBottom: 12 }}>
+              <div>
+                <Text type="secondary">订单号 </Text>
+                <Text strong copyable>{refundDetail.order_no}</Text>
+              </div>
+              <div>
+                <Text type="secondary">原价 </Text>
+                <Text>{formatCurrency(refundDetail.total_amount)}</Text>
+                {refundDetail.discount_amount > 0 && (
+                  <Text type="danger"> 优惠 -{formatCurrency(refundDetail.discount_amount)}</Text>
+                )}
+                <Text type="secondary"> 实付 </Text>
+                <Text strong style={{ color: '#00857C' }}>{formatCurrency(refundDetail.actual_amount)}</Text>
+              </div>
+            </Space>
+            <Table
+              rowKey="id"
+              size="small"
+              pagination={false}
+              dataSource={refundDetail.items}
+              scroll={{ y: 200 }}
+              columns={[
+                { title: '菜品', dataIndex: 'dish_name', key: 'dish_name' },
+                { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 70 },
+                {
+                  title: '可退',
+                  key: 'remaining',
+                  width: 70,
+                  render: (_, r) => r.quantity - r.refunded_quantity,
+                },
+                {
+                  title: '已退',
+                  dataIndex: 'refunded_quantity',
+                  key: 'refunded_quantity',
+                  width: 70,
+                  render: (v: number) => (v > 0 ? <Text type="warning">{v}</Text> : '-'),
+                },
+              ]}
+            />
+            <Divider style={{ margin: '12px 0' }} />
+            {refundableItems.length === 0 ? (
+              <Alert type="info" message="该订单所有菜品均已退完,无法继续退菜" showIcon />
+            ) : (
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Text type="secondary" style={{ width: 70 }}>退菜项</Text>
+                  <Select
+                    value={refundItemId ?? undefined}
+                    onChange={(v: number) => {
+                      setRefundItemId(v);
+                      setRefundQty(1);
+                    }}
+                    style={{ flex: 1 }}
+                    options={refundableItems.map((it) => ({
+                      value: it.id,
+                      label: `${it.dish_name}（可退 ${it.quantity - it.refunded_quantity}）`,
+                    }))}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Text type="secondary" style={{ width: 70 }}>退菜数量</Text>
+                  <InputNumber
+                    min={1}
+                    max={refundMaxQty}
+                    value={refundQty}
+                    onChange={(v) => setRefundQty(typeof v === 'number' ? v : 1)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Text type="secondary" style={{ width: 70 }}>退菜原因</Text>
+                  <Input
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    placeholder="可选,填写退菜原因"
+                    style={{ flex: 1 }}
+                  />
+                </div>
+              </Space>
+            )}
           </>
         )}
       </Modal>

@@ -16,8 +16,8 @@ class DashboardController extends Controller
         $date = Carbon::parse($request->input('date', 'today'));
         $dateStr = $date->toDateString();
 
-        $revenue = (float) Order::whereDate('created_at', $dateStr)->sum('total_amount');
-        $orderCount = (int) Order::whereDate('created_at', $dateStr)->count();
+        $revenue = (float) Order::whereDate('created_at', $dateStr)->where('status', '已完成')->sum('actual_amount');
+        $orderCount = (int) Order::whereDate('created_at', $dateStr)->where('status', '已完成')->count();
         $newMembers = (int) Member::whereDate('created_at', $dateStr)->count();
         $warningCount = (int) Ingredient::whereColumn('stock_qty', '<', 'warning_threshold')->count();
 
@@ -26,8 +26,8 @@ class DashboardController extends Controller
             $d = $date->copy()->subDays($i)->toDateString();
             $trend[] = [
                 'date' => $d,
-                'revenue' => (float) Order::whereDate('created_at', $d)->sum('total_amount'),
-                'order_count' => (int) Order::whereDate('created_at', $d)->count(),
+                'revenue' => (float) Order::whereDate('created_at', $d)->where('status', '已完成')->sum('actual_amount'),
+                'order_count' => (int) Order::whereDate('created_at', $d)->where('status', '已完成')->count(),
             ];
         }
 

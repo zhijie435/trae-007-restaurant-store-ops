@@ -232,11 +232,15 @@ class DatabaseSeeder extends Seeder
                 $useMember = rand(0, 100) < 55;
                 $itemCount = rand(1, 5);
                 $total = 0;
+                $discountRate = rand(0, 100) < 20 ? 0.8 : 1.0;
                 $order = Order::create([
                     'store_id' => $store->id,
                     'order_no' => 'NO'.date('Ymd', $time->timestamp).str_pad((string) ($n + 1), 4, '0', STR_PAD_LEFT),
                     'member_id' => $useMember ? $members->random()->id : null,
                     'total_amount' => 0,
+                    'discount_rate' => $discountRate,
+                    'discount_amount' => 0,
+                    'actual_amount' => 0,
                     'status' => '已完成',
                     'created_at' => $time,
                     'updated_at' => $time,
@@ -253,26 +257,34 @@ class DatabaseSeeder extends Seeder
                         'quantity' => $qty,
                         'price' => $dish->price,
                         'subtotal' => $subtotal,
+                        'refunded_quantity' => 0,
+                        'refunded_amount' => 0,
                         'created_at' => $time,
                         'updated_at' => $time,
                     ]);
                 }
 
-                $order->update(['total_amount' => $total]);
+                $actualAmount = round($total * $discountRate, 2);
+                $discountAmount = round($total - $actualAmount, 2);
+                $order->update([
+                    'total_amount' => $total,
+                    'discount_amount' => $discountAmount,
+                    'actual_amount' => $actualAmount,
+                ]);
 
                 if ($useMember) {
                     $member = $order->member;
-                    $points = (int) round($total);
+                    $points = (int) round($actualAmount);
                     MemberTransaction::create([
                         'member_id' => $member->id,
                         'type' => '消费',
-                        'amount' => $total,
+                        'amount' => $actualAmount,
                         'points_change' => $points,
                         'order_id' => $order->id,
                         'created_at' => $time,
                         'updated_at' => $time,
                     ]);
-                    $member->increment('total_spent', $total);
+                    $member->increment('total_spent', $actualAmount);
                     $member->increment('points', $points);
                 }
             }

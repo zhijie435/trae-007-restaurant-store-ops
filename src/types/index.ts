@@ -169,6 +169,8 @@ export interface CreateOrderRequest {
   member_id?: number | null;
   operator?: string;
   items: CreateOrderRequestItem[];
+  discount_rate?: number;
+  idempotency_key?: string;
 }
 
 export interface CreateOrderResponse {
@@ -177,6 +179,9 @@ export interface CreateOrderResponse {
     id: number;
     order_no: string;
     total_amount: number;
+    discount_rate: number;
+    discount_amount: number;
+    actual_amount: number;
     status: string;
     member_name: string | null;
     items: {
@@ -184,6 +189,90 @@ export interface CreateOrderResponse {
       quantity: number;
       price: number;
       subtotal: number;
+    }[];
+  };
+}
+
+export interface OrderListItem {
+  id: number;
+  order_no: string;
+  total_amount: number;
+  discount_rate: number;
+  discount_amount: number;
+  actual_amount: number;
+  status: string;
+  member_name: string | null;
+  item_count: number;
+  created_at: string;
+}
+
+export interface OrderDetailItem {
+  id: number;
+  dish_id: number;
+  dish_name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+  refunded_quantity: number;
+  refunded_amount: number;
+}
+
+export interface OrderReturnItem {
+  id: number;
+  dish_name: string;
+  quantity: number;
+  amount: number;
+  reason: string | null;
+  operator: string | null;
+  created_at: string;
+}
+
+export interface OrderDetail {
+  id: number;
+  order_no: string;
+  total_amount: number;
+  discount_rate: number;
+  discount_amount: number;
+  actual_amount: number;
+  status: string;
+  member_name: string | null;
+  created_at: string;
+  items: OrderDetailItem[];
+  returns: OrderReturnItem[];
+}
+
+export interface OrderListResponse {
+  total: number;
+  page: number;
+  per_page: number;
+  items: OrderListItem[];
+}
+
+export interface ReturnDishRequest {
+  order_item_id: number;
+  quantity: number;
+  reason?: string;
+  operator?: string;
+}
+
+export interface ReturnDishResponse {
+  message: string;
+  order: {
+    id: number;
+    order_no: string;
+    total_amount: number;
+    discount_rate: number;
+    discount_amount: number;
+    actual_amount: number;
+    status: string;
+    items: {
+      id: number;
+      dish_name: string;
+      quantity: number;
+      price: number;
+      subtotal: number;
+      refunded_quantity: number;
+      refunded_amount: number;
     }[];
   };
 }

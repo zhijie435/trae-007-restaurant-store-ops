@@ -6,6 +6,7 @@ import InventoryReport from '@/pages/InventoryReport';
 import MealOrder from '@/pages/MealOrder';
 import MemberReport from '@/pages/MemberReport';
 import MealReport from '@/pages/MealReport';
+import OrderList from '@/pages/OrderList';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/order" element={<MealOrder />} />
+          <Route path="/orders" element={<OrderList />} />
           <Route path="/report/daily" element={<DailyReport />} />
           <Route path="/report/inventory" element={<InventoryReport />} />
           <Route path="/report/member" element={<MemberReport />} />

@@ -17,4 +17,7 @@ Route::get('/reports/meal', [MealReportController::class, 'show']);
 
 Route::get('/dishes', [DishController::class, 'index']);
 Route::patch('/dishes/{id}/toggle', [DishController::class, 'toggle']);
+Route::get('/orders', [OrderController::class, 'index']);
+Route::get('/orders/{id}', [OrderController::class, 'show']);
 Route::post('/orders', [OrderController::class, 'store']);
+Route::post('/orders/{id}/return', [OrderController::class, 'returnDish']);
