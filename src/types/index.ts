@@ -159,6 +159,22 @@ export interface Dish {
   ingredients: DishIngredientRecipe[];
 }
 
+export interface CartRow {
+  dish_id: number;
+  quantity: number;
+}
+
+export interface IngredientConsumption {
+  id: number;
+  name: string;
+  category: string;
+  unit: string;
+  stock_qty: number;
+  warning_threshold: number;
+  quantity: number;
+  after_stock: number;
+}
+
 export interface CreateOrderRequestItem {
   dish_id: number;
   quantity: number;
