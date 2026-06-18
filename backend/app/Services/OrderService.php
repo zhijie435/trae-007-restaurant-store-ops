@@ -42,6 +42,10 @@ class OrderService
             throw new InvalidArgumentException('折扣率必须在 0-1 之间(8折请传 0.8)');
         }
 
+        if ($discountAmount !== null && $discountAmount < 0) {
+            throw new InvalidArgumentException('减免金额不能为负数');
+        }
+
         $parsed = collect($items)->map(function ($row) {
             $dishId = (int) ($row['dish_id'] ?? null);
             $qty = (int) ($row['quantity'] ?? 0);
@@ -120,7 +124,7 @@ class OrderService
             }
         }
 
-        return DB::transaction(function () use ($store, $parsed, $dishes, $ingredients, $consumption, $memberId, $operator, $discountRate, $idempotencyKey) {
+        return DB::transaction(function () use ($store, $parsed, $dishes, $ingredients, $consumption, $memberId, $operator, $discountRate, $discountAmount, $idempotencyKey) {
             $now = Carbon::now();
             $totalAmount = 0;
 
@@ -157,12 +161,14 @@ class OrderService
                 ]);
             }
 
-            $actualAmount = round($totalAmount * $discountRate, 2);
-            $discountAmount = round($totalAmount - $actualAmount, 2);
+            $afterRateAmount = round($totalAmount * $discountRate, 2);
+            $finalDiscountAmount = $discountAmount ?? 0;
+            $actualAmount = max(0, round($afterRateAmount - $finalDiscountAmount, 2));
+            $discountTotal = round($totalAmount - $actualAmount, 2);
 
             $order->update([
                 'total_amount' => $totalAmount,
-                'discount_amount' => $discountAmount,
+                'discount_amount' => $discountTotal,
                 'actual_amount' => $actualAmount,
             ]);
 
@@ -254,19 +260,41 @@ class OrderService
             $orderItem->increment('refunded_quantity', $quantity);
             $orderItem->increment('refunded_amount', $returnAmount);
 
-            $rate = (float) $order->discount_rate;
-            $newTotal = round($order->total_amount - $returnAmount, 2);
-            $newActual = round($newTotal * $rate, 2);
-            $newDiscount = round($newTotal - $newActual, 2);
+            $order->refresh()->load('items');
 
-            $allRefunded = $order->items()
-                ->whereColumn('quantity', '<=', 'refunded_quantity')
-                ->exists();
+            $newTotalAmount = 0;
+            foreach ($order->items as $item) {
+                $remainingQty = $item->quantity - $item->refunded_quantity;
+                if ($remainingQty > 0) {
+                    $newTotalAmount += round($item->price * $remainingQty, 2);
+                }
+            }
+            $newTotalAmount = round($newTotalAmount, 2);
+
+            $rate = (float) $order->discount_rate;
+            $afterRateAmount = round($newTotalAmount * $rate, 2);
+
+            $unrefundedItems = $order->items->filter(function ($item) {
+                return ($item->quantity - $item->refunded_quantity) > 0;
+            });
+            $allRefunded = $unrefundedItems->count() === 0;
+
+            $originalTotal = (float) $order->total_amount;
+            if ($originalTotal > 0 && $newTotalAmount <= 0) {
+                $newActualAmount = 0;
+            } elseif ($originalTotal > 0) {
+                $originalActual = (float) $order->actual_amount;
+                $ratio = $newTotalAmount / $originalTotal;
+                $newActualAmount = round($originalActual * $ratio, 2);
+            } else {
+                $newActualAmount = max(0, $afterRateAmount);
+            }
+
+            $newDiscountAmount = round($newTotalAmount - $newActualAmount, 2);
 
             $order->update([
-                'total_amount' => $newTotal,
-                'discount_amount' => $newDiscount,
-                'actual_amount' => $newActual,
+                'discount_amount' => $newDiscountAmount,
+                'actual_amount' => $newActualAmount,
                 'status' => $allRefunded ? '已退' : '已完成',
             ]);
 

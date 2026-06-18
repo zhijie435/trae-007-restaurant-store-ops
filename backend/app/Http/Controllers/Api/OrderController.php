@@ -100,6 +100,7 @@ class OrderController extends Controller
                 'items.*.dish_id' => ['required', 'integer', 'exists:dishes,id'],
                 'items.*.quantity' => ['required', 'integer', 'min:1'],
                 'discount_rate' => ['nullable', 'numeric', 'min:0', 'max:1'],
+                'discount_amount' => ['nullable', 'numeric', 'min:0'],
                 'idempotency_key' => ['nullable', 'string', 'max:64'],
             ]);
         } catch (ValidationException $e) {
@@ -121,6 +122,7 @@ class OrderController extends Controller
                 $data['member_id'] ?? null,
                 $data['operator'] ?? null,
                 (float) ($data['discount_rate'] ?? 1.0),
+                isset($data['discount_amount']) ? (float) $data['discount_amount'] : null,
                 $data['idempotency_key'] ?? null,
             );
         } catch (InvalidArgumentException $e) {

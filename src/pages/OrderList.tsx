@@ -398,6 +398,24 @@ export default function OrderList() {
                   <Text type="secondary">原价合计</Text>
                   <Text>{formatCurrency(currentOrder.total_amount)}</Text>
                 </div>
+                {currentOrder.items.some((it) => it.refunded_amount > 0) && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Text type="secondary">已退金额</Text>
+                    <Text type="warning">
+                      -{formatCurrency(
+                        currentOrder.items.reduce(
+                          (s, it) => s + it.refunded_amount,
+                          0,
+                        ),
+                      )}
+                    </Text>
+                  </div>
+                )}
                 {currentOrder.discount_amount > 0 && (
                   <div
                     style={{

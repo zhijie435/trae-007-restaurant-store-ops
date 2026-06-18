@@ -170,6 +170,7 @@ export interface CreateOrderRequest {
   operator?: string;
   items: CreateOrderRequestItem[];
   discount_rate?: number;
+  discount_amount?: number;
   idempotency_key?: string;
 }
 

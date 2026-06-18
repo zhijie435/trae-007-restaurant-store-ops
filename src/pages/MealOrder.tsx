@@ -69,6 +69,7 @@ export default function MealOrder() {
   const [showInactive, setShowInactive] = useState(true);
   const [soldOutIds, setSoldOutIds] = useState<Set<number>>(new Set());
   const [discountRate, setDiscountRate] = useState<number>(1);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
 
   const submittingRef = useRef(false);
   const [orders, setOrders] = useState<OrderListItem[]>([]);
@@ -176,8 +177,9 @@ export default function MealOrder() {
   }, [cartRows, dishes]);
 
   const actualAmount = useMemo(() => {
-    return Math.round(totalAmount * discountRate * 100) / 100;
-  }, [totalAmount, discountRate]);
+    const afterRate = Math.round(totalAmount * discountRate * 100) / 100;
+    return Math.max(0, Math.round((afterRate - (discountAmount ?? 0)) * 100) / 100);
+  }, [totalAmount, discountRate, discountAmount]);
 
   const discountTotal = useMemo(() => {
     return Math.round((totalAmount - actualAmount) * 100) / 100;
@@ -285,12 +287,14 @@ export default function MealOrder() {
         operator: operator || undefined,
         items: cartRows,
         discount_rate: discountRate < 1 ? discountRate : undefined,
+        discount_amount: discountAmount > 0 ? discountAmount : undefined,
         idempotency_key: idempotencyKey,
       });
       setResult(res.order);
       setResultOpen(true);
       setCart({});
       setDiscountRate(1);
+      setDiscountAmount(0);
       message.success('下单成功,原料库存已扣减');
       await loadDishes();
       await loadOrders();
@@ -828,6 +832,9 @@ export default function MealOrder() {
                 <Text>{formatCurrency(refundDetail.total_amount)}</Text>
                 {refundDetail.discount_amount > 0 && (
                   <Text type="danger"> 优惠 -{formatCurrency(refundDetail.discount_amount)}</Text>
+                )}
+                {refundDetail.items.some((it) => it.refunded_amount > 0) && (
+                  <Text type="warning"> 已退 -{formatCurrency(refundDetail.items.reduce((s, it) => s + it.refunded_amount, 0))}</Text>
                 )}
                 <Text type="secondary"> 实付 </Text>
                 <Text strong style={{ color: '#00857C' }}>{formatCurrency(refundDetail.actual_amount)}</Text>
