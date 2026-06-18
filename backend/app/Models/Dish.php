@@ -19,4 +19,9 @@ class Dish extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    public function ingredients(): HasMany
+    {
+        return $this->hasMany(DishIngredient::class);
+    }
 }

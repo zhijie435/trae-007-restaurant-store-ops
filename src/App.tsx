@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import MainLayout from '@/layouts/MainLayout';
 import Dashboard from '@/pages/Dashboard';
 import InventoryReport from '@/pages/InventoryReport';
+import MealOrder from '@/pages/MealOrder';
 import MemberReport from '@/pages/MemberReport';
 import MealReport from '@/pages/MealReport';
 
@@ -11,6 +12,7 @@ export default function App() {
       <MainLayout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/order" element={<MealOrder />} />
           <Route path="/report/inventory" element={<InventoryReport />} />
           <Route path="/report/member" element={<MemberReport />} />
           <Route path="/report/meal" element={<MealReport />} />

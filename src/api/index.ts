@@ -1,6 +1,9 @@
 import axios from 'axios';
 import type {
+  CreateOrderRequest,
+  CreateOrderResponse,
   DashboardData,
+  Dish,
   InventoryReport,
   MealReport,
   MemberReport,
@@ -28,4 +31,7 @@ export const api = {
     client.get<unknown, MemberReport>('/reports/member', { params: { date } }),
   mealReport: (date?: string) =>
     client.get<unknown, MealReport>('/reports/meal', { params: { date } }),
+  dishes: () => client.get<unknown, Dish[]>('/dishes'),
+  createOrder: (payload: CreateOrderRequest) =>
+    client.post<unknown, CreateOrderResponse>('/orders', payload),
 };

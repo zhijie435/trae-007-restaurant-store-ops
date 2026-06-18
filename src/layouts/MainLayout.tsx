@@ -4,6 +4,7 @@ import {
   InboxOutlined,
   TeamOutlined,
   ForkOutlined,
+  PlusCircleOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -12,9 +13,10 @@ const { Sider, Header, Content } = Layout;
 
 const menuItems = [
   { key: '/', icon: <DashboardOutlined />, label: '综合仪表盘' },
+  { key: '/order', icon: <PlusCircleOutlined />, label: '点餐出餐' },
+  { key: '/report/meal', icon: <ForkOutlined />, label: '出餐日报' },
   { key: '/report/inventory', icon: <InboxOutlined />, label: '库存日报' },
   { key: '/report/member', icon: <TeamOutlined />, label: '会员日报' },
-  { key: '/report/meal', icon: <ForkOutlined />, label: '出餐日报' },
 ];
 
 export default function MainLayout({ children }: { children: ReactNode }) {

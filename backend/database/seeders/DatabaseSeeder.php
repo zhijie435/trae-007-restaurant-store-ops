@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Dish;
+use App\Models\DishIngredient;
 use App\Models\Ingredient;
 use App\Models\InventoryRecord;
 use App\Models\Member;
@@ -25,6 +26,7 @@ class DatabaseSeeder extends Seeder
 
         $this->seedIngredients($store);
         $this->seedDishes($store);
+        $this->seedDishRecipes();
         $this->seedMembers($store);
         $this->seedInventoryRecords();
         $this->seedOrdersAndItems($store);
@@ -95,6 +97,50 @@ class DatabaseSeeder extends Seeder
                 'cost' => $cost,
                 'is_active' => true,
             ]);
+        }
+    }
+
+    private function seedDishRecipes(): void
+    {
+        $recipes = [
+            '宫保鸡丁' => [['鸡腿', 0.3], ['食用油', 0.02], ['酱油', 0.01]],
+            '鱼香肉丝' => [['猪肉', 0.25], ['食用油', 0.02], ['酱油', 0.01], ['白糖', 0.01]],
+            '麻婆豆腐' => [['豆腐', 0.4], ['猪肉', 0.05], ['食用油', 0.01], ['酱油', 0.01]],
+            '回锅肉' => [['猪肉', 0.3], ['食用油', 0.01], ['酱油', 0.01]],
+            '番茄炒蛋' => [['番茄', 0.3], ['鸡蛋', 2], ['食用油', 0.02], ['食盐', 0.005]],
+            '红烧牛肉' => [['牛肉', 0.35], ['食用油', 0.02], ['酱油', 0.02]],
+            '清蒸鱼' => [['食用油', 0.02], ['酱油', 0.01], ['食盐', 0.005]],
+            '油焖大虾' => [['虾', 0.4], ['食用油', 0.02], ['酱油', 0.01], ['白糖', 0.01]],
+            '青椒土豆丝' => [['土豆', 0.35], ['食用油', 0.015], ['食盐', 0.005]],
+            '蒜蓉生菜' => [['生菜', 0.3], ['食用油', 0.01], ['食盐', 0.003]],
+            '凉拌黄瓜' => [['黄瓜', 0.3], ['食盐', 0.003], ['酱油', 0.005]],
+            '皮蛋豆腐' => [['豆腐', 0.2], ['酱油', 0.005]],
+            '蛋炒饭' => [['米饭', 1], ['鸡蛋', 1], ['食用油', 0.02], ['食盐', 0.005]],
+            '牛肉面' => [['牛肉', 0.15], ['面粉', 0.2], ['食用油', 0.01], ['酱油', 0.01]],
+            '米饭' => [['大米', 0.2]],
+            '酸梅汤' => [['白糖', 0.01]],
+            '可乐' => [],
+            '例汤' => [['食盐', 0.002]],
+        ];
+
+        $ingredientMap = Ingredient::pluck('id', 'name')->all();
+        $dishMap = Dish::pluck('id', 'name')->all();
+
+        foreach ($recipes as $dishName => $items) {
+            $dishId = $dishMap[$dishName] ?? null;
+            if (!$dishId) {
+                continue;
+            }
+            foreach ($items as [$ingredientName, $qty]) {
+                $ingredientId = $ingredientMap[$ingredientName] ?? null;
+                if ($ingredientId) {
+                    DishIngredient::create([
+                        'dish_id' => $dishId,
+                        'ingredient_id' => $ingredientId,
+                        'quantity' => $qty,
+                    ]);
+                }
+            }
         }
     }
 

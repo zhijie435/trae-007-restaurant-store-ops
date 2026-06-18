@@ -19,4 +19,9 @@ class Ingredient extends Model
     {
         return $this->hasMany(InventoryRecord::class);
     }
+
+    public function dishes(): HasMany
+    {
+        return $this->hasMany(DishIngredient::class);
+    }
 }

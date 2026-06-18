@@ -104,3 +104,51 @@ export interface MealReport {
   top_dishes: TopDish[];
   hourly: HourlyItem[];
 }
+
+export interface DishIngredientRecipe {
+  id: number;
+  name: string;
+  category: string;
+  unit: string;
+  stock_qty: number;
+  warning_threshold: number;
+  quantity: number;
+}
+
+export interface Dish {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  cost: number;
+  ingredients: DishIngredientRecipe[];
+}
+
+export interface CreateOrderRequestItem {
+  dish_id: number;
+  quantity: number;
+}
+
+export interface CreateOrderRequest {
+  store_id?: number;
+  member_id?: number | null;
+  operator?: string;
+  items: CreateOrderRequestItem[];
+}
+
+export interface CreateOrderResponse {
+  message: string;
+  order: {
+    id: number;
+    order_no: string;
+    total_amount: number;
+    status: string;
+    member_name: string | null;
+    items: {
+      dish_name: string;
+      quantity: number;
+      price: number;
+      subtotal: number;
+    }[];
+  };
+}
