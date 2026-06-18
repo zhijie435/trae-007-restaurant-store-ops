@@ -12,12 +12,14 @@ import {
   Row,
   Space,
   Spin,
+  Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from 'antd';
-import { MinusOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons';
+import { MinusOutlined, PauseCircleOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { api } from '@/api';
 import { formatCurrency } from '@/utils/format';
@@ -50,26 +52,51 @@ export default function MealOrder() {
   const [result, setResult] = useState<CreateOrderResponse['order'] | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(true);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
-  useEffect(() => {
+  async function loadDishes() {
     let canceled = false;
     setLoading(true);
     setError(null);
-    api
-      .dishes()
-      .then((data) => {
-        if (!canceled) setDishes(data);
-      })
-      .catch((e) => {
-        if (!canceled) setError(e?.response?.data?.message ?? e.message ?? '加载菜品失败');
-      })
-      .finally(() => {
-        if (!canceled) setLoading(false);
-      });
+    try {
+      const data = await api.dishes(showInactive);
+      if (!canceled) setDishes(data);
+    } catch (e) {
+      if (!canceled) setError((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? (e as Error).message ?? '加载菜品失败');
+    } finally {
+      if (!canceled) setLoading(false);
+    }
     return () => {
       canceled = true;
     };
-  }, []);
+  }
+
+  useEffect(() => {
+    loadDishes();
+  }, [showInactive]);
+
+  async function handleToggle(dish: Dish) {
+    setTogglingId(dish.id);
+    try {
+      const res = await api.toggleDish(dish.id);
+      setDishes((prev) =>
+        prev.map((d) => (d.id === res.id ? { ...d, is_active: res.is_active } : d)),
+      );
+      if (!res.is_active) {
+        setCart((prev) => {
+          const copy = { ...prev };
+          delete copy[res.id];
+          return copy;
+        });
+      }
+      message.success(res.is_active ? '菜品已上架' : '菜品已售罄/下架');
+    } catch (e) {
+      message.error('操作失败,请稍后重试');
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   const groupedDishes = useMemo(() => {
     const map = new Map<string, Dish[]>();
@@ -182,9 +209,7 @@ export default function MealOrder() {
       setResultOpen(true);
       setCart({});
       message.success('下单成功,原料库存已扣减');
-      // 刷新菜品库存
-      const fresh = await api.dishes();
-      setDishes(fresh);
+      await loadDishes();
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -257,6 +282,14 @@ export default function MealOrder() {
           <Text type="secondary">提交订单后将按菜品配方自动扣减原料库存,并写入出库记录</Text>
         </div>
         <Space>
+          <Space size={6}>
+            <Text type="secondary" style={{ fontSize: 13 }}>显示售罄菜品</Text>
+            <Switch
+              checked={showInactive}
+              onChange={setShowInactive}
+              size="small"
+            />
+          </Space>
           <span style={{ color: '#8c8c8c' }}>操作人</span>
           <Input
             value={operator}
@@ -282,44 +315,70 @@ export default function MealOrder() {
                     {list.map((dish) => {
                       const qty = cart[dish.id] ?? 0;
                       const noRecipe = dish.ingredients.length === 0;
+                      const isInactive = !dish.is_active;
                       return (
                         <Col xs={24} sm={12} xl={8} key={dish.id}>
                           <Card
                             size="small"
-                            hoverable
-                            style={{ borderRadius: 10, border: 'none', background: '#fafafa', height: '100%' }}
+                            hoverable={!isInactive}
+                            style={{
+                              borderRadius: 10,
+                              border: 'none',
+                              background: isInactive ? '#fff1f0' : '#fafafa',
+                              height: '100%',
+                              opacity: isInactive ? 0.75 : 1,
+                            }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                               <div style={{ minWidth: 0, flex: 1 }}>
-                                <div style={{ fontWeight: 600 }}>{dish.name}</div>
+                                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                  {dish.name}
+                                  {isInactive && <Tag color="red" icon={<PauseCircleOutlined />}>售罄</Tag>}
+                                </div>
                                 <Space size={6} wrap style={{ marginTop: 4 }}>
-                                  <Text strong style={{ color: '#00857C' }}>
+                                  <Text strong style={{ color: isInactive ? '#8c8c8c' : '#00857C' }}>
                                     {formatCurrency(dish.price)}
                                   </Text>
                                   {noRecipe && <Tag color="default">未配置配方</Tag>}
                                 </Space>
                               </div>
-                              <Space.Compact size="small">
-                                <Button
-                                  shape="circle"
-                                  icon={<MinusOutlined />}
-                                  disabled={qty === 0}
-                                  onClick={() => changeQty(dish.id, -1)}
-                                />
-                                <InputNumber
-                                  min={0}
-                                  value={qty}
-                                  controls={false}
-                                  onChange={(v) => setQty(dish.id, typeof v === 'number' ? v : null)}
-                                  style={{ width: 48, textAlign: 'center' }}
-                                />
-                                <Button
-                                  type="primary"
-                                  shape="circle"
-                                  icon={<PlusOutlined />}
-                                  onClick={() => changeQty(dish.id, 1)}
-                                />
-                              </Space.Compact>
+                              <Space direction="vertical" size={4} style={{ alignItems: 'flex-end' }}>
+                                <Tooltip title={isInactive ? '点击重新上架' : '点击标记售罄'}>
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    danger={!isInactive}
+                                    loading={togglingId === dish.id}
+                                    onClick={() => handleToggle(dish)}
+                                    style={{ padding: '0 4px', height: 24 }}
+                                  >
+                                    {isInactive ? '上架' : '售罄'}
+                                  </Button>
+                                </Tooltip>
+                                <Space.Compact size="small">
+                                  <Button
+                                    shape="circle"
+                                    icon={<MinusOutlined />}
+                                    disabled={qty === 0 || isInactive}
+                                    onClick={() => changeQty(dish.id, -1)}
+                                  />
+                                  <InputNumber
+                                    min={0}
+                                    value={qty}
+                                    controls={false}
+                                    disabled={isInactive}
+                                    onChange={(v) => setQty(dish.id, typeof v === 'number' ? v : null)}
+                                    style={{ width: 48, textAlign: 'center' }}
+                                  />
+                                  <Button
+                                    type="primary"
+                                    shape="circle"
+                                    icon={<PlusOutlined />}
+                                    disabled={isInactive}
+                                    onClick={() => changeQty(dish.id, 1)}
+                                  />
+                                </Space.Compact>
+                              </Space>
                             </div>
                           </Card>
                         </Col>

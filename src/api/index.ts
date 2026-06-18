@@ -3,6 +3,7 @@ import type {
   CreateOrderRequest,
   CreateOrderResponse,
   DashboardData,
+  DailyReport,
   Dish,
   InventoryReport,
   MealReport,
@@ -25,13 +26,19 @@ client.interceptors.response.use(
 export const api = {
   dashboard: (date?: string) =>
     client.get<unknown, DashboardData>('/dashboard', { params: { date } }),
+  dailyReport: (date?: string) =>
+    client.get<unknown, DailyReport>('/reports/daily', { params: { date } }),
   inventoryReport: (date?: string) =>
     client.get<unknown, InventoryReport>('/reports/inventory', { params: { date } }),
   memberReport: (date?: string) =>
     client.get<unknown, MemberReport>('/reports/member', { params: { date } }),
   mealReport: (date?: string) =>
     client.get<unknown, MealReport>('/reports/meal', { params: { date } }),
-  dishes: () => client.get<unknown, Dish[]>('/dishes'),
+  dishes: (withInactive?: boolean) =>
+    client.get<unknown, Dish[]>('/dishes', { params: { with_inactive: withInactive } }),
+  toggleDish: (id: number) =>
+    client.patch<unknown, { id: number; is_active: boolean }>(`/dishes/${id}/toggle`),
   createOrder: (payload: CreateOrderRequest) =>
     client.post<unknown, CreateOrderResponse>('/orders', payload),
 };
+

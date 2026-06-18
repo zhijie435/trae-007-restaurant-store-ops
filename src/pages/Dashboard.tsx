@@ -56,7 +56,8 @@ export default function Dashboard() {
   const orderData = trend.map((t) => ({ date: t.date.slice(5), count: t.order_count }));
 
   const quickLinks = [
-    { title: '库存日报', desc: '库存变动与预警', path: '/report/inventory', color: '#00857C' },
+    { title: '综合日报', desc: '经营/出餐/会员/库存总览', path: '/report/daily', color: '#00857C' },
+    { title: '库存日报', desc: '库存变动与预警', path: '/report/inventory', color: '#fa541c' },
     { title: '会员日报', desc: '会员消费与等级', path: '/report/member', color: '#722ed1' },
     { title: '出餐日报', desc: '菜品销量与时段', path: '/report/meal', color: '#fa8c16' },
   ];

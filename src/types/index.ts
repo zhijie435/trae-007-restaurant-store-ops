@@ -105,6 +105,40 @@ export interface MealReport {
   hourly: HourlyItem[];
 }
 
+export interface DailyReportMeal {
+  order_count: number;
+  revenue: number;
+  avg_order_value: number;
+  member_orders: number;
+  guest_orders: number;
+  top_dishes: TopDish[];
+  hourly: HourlyItem[];
+}
+
+export interface DailyReportMember {
+  new_members: number;
+  active_members: number;
+  consumption: number;
+  recharge: number;
+  points_change: number;
+  total_members: number;
+}
+
+export interface DailyReportInventory {
+  inbound: number;
+  outbound: number;
+  net: number;
+  warning_count: number;
+  total_skus: number;
+}
+
+export interface DailyReport {
+  date: string;
+  meal: DailyReportMeal;
+  member: DailyReportMember;
+  inventory: DailyReportInventory;
+}
+
 export interface DishIngredientRecipe {
   id: number;
   name: string;
@@ -121,6 +155,7 @@ export interface Dish {
   category: string;
   price: number;
   cost: number;
+  is_active: boolean;
   ingredients: DishIngredientRecipe[];
 }
 
@@ -152,3 +187,4 @@ export interface CreateOrderResponse {
     }[];
   };
 }
+
