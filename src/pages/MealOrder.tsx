@@ -53,7 +53,7 @@ export default function MealOrder() {
   const [resultOpen, setResultOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(true);
-  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [soldOutIds, setSoldOutIds] = useState<Set<number>>(new Set());
 
   async function loadDishes() {
     let canceled = false;
@@ -76,25 +76,26 @@ export default function MealOrder() {
     loadDishes();
   }, [showInactive]);
 
-  async function handleToggle(dish: Dish) {
-    setTogglingId(dish.id);
-    try {
-      const res = await api.toggleDish(dish.id);
-      setDishes((prev) =>
-        prev.map((d) => (d.id === res.id ? { ...d, is_active: res.is_active } : d)),
-      );
-      if (!res.is_active) {
-        setCart((prev) => {
-          const copy = { ...prev };
-          delete copy[res.id];
-          return copy;
-        });
+  function handleToggle(dish: Dish) {
+    const willSoldOut = !soldOutIds.has(dish.id) && dish.is_active;
+    setSoldOutIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(dish.id)) {
+        next.delete(dish.id);
+      } else {
+        next.add(dish.id);
       }
-      message.success(res.is_active ? '菜品已上架' : '菜品已售罄/下架');
-    } catch (e) {
-      message.error('操作失败,请稍后重试');
-    } finally {
-      setTogglingId(null);
+      return next;
+    });
+    if (willSoldOut) {
+      setCart((prev) => {
+        const copy = { ...prev };
+        delete copy[dish.id];
+        return copy;
+      });
+      message.success('菜品已售罄');
+    } else {
+      message.success('菜品已上架');
     }
   }
 
@@ -315,7 +316,7 @@ export default function MealOrder() {
                     {list.map((dish) => {
                       const qty = cart[dish.id] ?? 0;
                       const noRecipe = dish.ingredients.length === 0;
-                      const isInactive = !dish.is_active;
+                      const isInactive = !dish.is_active || soldOutIds.has(dish.id);
                       return (
                         <Col xs={24} sm={12} xl={8} key={dish.id}>
                           <Card
@@ -348,7 +349,6 @@ export default function MealOrder() {
                                     type="text"
                                     size="small"
                                     danger={!isInactive}
-                                    loading={togglingId === dish.id}
                                     onClick={() => handleToggle(dish)}
                                     style={{ padding: '0 4px', height: 24 }}
                                   >
