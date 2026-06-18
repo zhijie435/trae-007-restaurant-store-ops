@@ -1,7 +1,8 @@
-import { Row, Col, Card, Table, Tag, Spin, Alert, Empty, Typography } from 'antd';
+import { Row, Col, Card, Table, Tag, Spin, Alert, Empty, Typography, Tabs } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { UserAddOutlined, TeamOutlined, DollarOutlined, WalletOutlined, StarOutlined } from '@ant-design/icons';
 import { Pie } from '@ant-design/charts';
+import { useMemo, useState } from 'react';
 import StatCard from '@/components/StatCard';
 import ReportToolbar from '@/components/ReportToolbar';
 import { useReportData, useReportDate } from '@/hooks/useReport';
@@ -30,6 +31,16 @@ export default function MemberReport() {
     api.memberReport,
     date,
   );
+  const [tabKey, setTabKey] = useState<'all' | '消费' | '充值'>('all');
+
+  const summary = data?.summary;
+  const transactions = data?.transactions ?? [];
+  const levelDist = data?.level_distribution ?? {};
+
+  const filteredTransactions = useMemo(() => {
+    if (tabKey === 'all') return transactions;
+    return transactions.filter((t) => t.type === tabKey);
+  }, [transactions, tabKey]);
 
   if (loading && !data) {
     return (
@@ -41,10 +52,6 @@ export default function MemberReport() {
   if (error && !data) {
     return <Alert type="error" message="数据加载失败" description={error} showIcon style={{ margin: 24 }} />;
   }
-
-  const summary = data?.summary;
-  const transactions = data?.transactions ?? [];
-  const levelDist = data?.level_distribution ?? {};
 
   const pieData = Object.entries(levelDist).map(([name, value]) => ({
     name,
@@ -108,7 +115,7 @@ export default function MemberReport() {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={10}>
-          <Card title="会员等级分布" bordered={false} style={{ borderRadius: 12, height: '100%' }}>
+          <Card title="会员等级分布" variant="borderless" style={{ borderRadius: 12, height: '100%' }}>
             {pieData.length === 0 ? (
               <Empty description="暂无会员数据" />
             ) : (
@@ -141,13 +148,25 @@ export default function MemberReport() {
           </Card>
         </Col>
         <Col xs={24} lg={14}>
-          <Card title="会员交易明细" bordered={false} style={{ borderRadius: 12 }}>
+          <Card
+            title="会员交易明细"
+            variant="borderless"
+            style={{ borderRadius: 12 }}
+            tabList={[
+              { key: 'all', tab: `全部 (${transactions.length})` },
+              { key: '消费', tab: `消费 (${transactions.filter((t) => t.type === '消费').length})` },
+              { key: '充值', tab: `充值 (${transactions.filter((t) => t.type === '充值').length})` },
+            ]}
+            activeTabKey={tabKey}
+            onTabChange={(k) => setTabKey(k as 'all' | '消费' | '充值')}
+          >
             <Table<MemberTransactionItem>
               rowKey="id"
               size="small"
               columns={columns}
-              dataSource={transactions}
+              dataSource={filteredTransactions}
               pagination={{ pageSize: 8, showSizeChanger: false }}
+              locale={{ emptyText: tabKey === 'all' ? '暂无交易记录' : `暂无${tabKey}记录` }}
             />
           </Card>
         </Col>

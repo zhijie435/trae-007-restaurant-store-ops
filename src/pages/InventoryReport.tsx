@@ -114,7 +114,7 @@ export default function InventoryReport() {
         <Col xs={24} lg={10}>
           <Card
             title={<span>库存预警列表 <Tag color="red">{warningList.length}</Tag></span>}
-            bordered={false}
+            variant="borderless"
             style={{ borderRadius: 12 }}
           >
             {warningList.length === 0 ? (
@@ -132,7 +132,7 @@ export default function InventoryReport() {
           </Card>
         </Col>
         <Col xs={24} lg={14}>
-          <Card title="出入库明细" bordered={false} style={{ borderRadius: 12 }}>
+          <Card title="出入库明细" variant="borderless" style={{ borderRadius: 12 }}>
             <Table<InventoryRecordItem>
               rowKey="id"
               size="small"

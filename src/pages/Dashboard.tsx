@@ -112,7 +112,7 @@ export default function Dashboard() {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={16}>
-          <Card title="近 7 天营业额趋势" bordered={false} style={{ borderRadius: 12 }}>
+          <Card title="近 7 天营业额趋势" variant="borderless" style={{ borderRadius: 12 }}>
             <Area
               data={revenueData}
               xField="date"
@@ -130,7 +130,7 @@ export default function Dashboard() {
           </Card>
         </Col>
         <Col xs={24} lg={8}>
-          <Card title="快速入口" bordered={false} style={{ borderRadius: 12, height: '100%' }}>
+          <Card title="快速入口" variant="borderless" style={{ borderRadius: 12, height: '100%' }}>
             <Space direction="vertical" size={12} style={{ width: '100%' }}>
               {quickLinks.map((link) => (
                 <Card
@@ -158,7 +158,7 @@ export default function Dashboard() {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24}>
-          <Card title="近 7 天订单量趋势" bordered={false} style={{ borderRadius: 12 }}>
+          <Card title="近 7 天订单量趋势" variant="borderless" style={{ borderRadius: 12 }}>
             <Column
               data={orderData}
               xField="date"

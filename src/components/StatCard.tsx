@@ -24,7 +24,7 @@ export default function StatCard({
 }: StatCardProps) {
   return (
     <Card
-      bordered={false}
+      variant="borderless"
       style={{ borderRadius: 12, height: '100%' }}
       styles={{ body: { padding: 20 } }}
     >

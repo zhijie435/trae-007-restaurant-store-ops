@@ -269,7 +269,7 @@ export default function MealOrder() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
-          <Card title="菜单" bordered={false} style={{ borderRadius: 12 }}>
+          <Card title="菜单" variant="borderless" style={{ borderRadius: 12 }}>
             {groupedDishes.length === 0 ? (
               <Empty description="暂无菜品" />
             ) : (
@@ -340,7 +340,7 @@ export default function MealOrder() {
                 <Tag color="blue">{cartRows.length} 种</Tag>
               </Space>
             }
-            bordered={false}
+            variant="borderless"
             style={{ borderRadius: 12, position: 'sticky', top: 88 }}
             extra={
               <Text strong style={{ color: '#00857C', fontSize: 18 }}>
@@ -401,7 +401,7 @@ export default function MealOrder() {
           </Card>
 
           {consumption.length > 0 && (
-            <Card title="预计原料扣减" bordered={false} style={{ borderRadius: 12, marginTop: 16 }}>
+            <Card title="预计原料扣减" variant="borderless" style={{ borderRadius: 12, marginTop: 16 }}>
               <Table<IngredientConsumption>
                 rowKey="id"
                 size="small"

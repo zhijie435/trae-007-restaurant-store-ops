@@ -63,7 +63,7 @@ export default function MealReport() {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={12}>
-          <Card title="菜品销量排行 Top10" bordered={false} style={{ borderRadius: 12, height: '100%' }}>
+          <Card title="菜品销量排行 Top10" variant="borderless" style={{ borderRadius: 12, height: '100%' }}>
             {topDishes.length === 0 ? (
               <Empty description="暂无出餐数据" />
             ) : (
@@ -97,7 +97,7 @@ export default function MealReport() {
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="订单时段分布（24 小时）" bordered={false} style={{ borderRadius: 12, height: '100%' }}>
+          <Card title="订单时段分布（24 小时）" variant="borderless" style={{ borderRadius: 12, height: '100%' }}>
             <Column
               data={hourly}
               xField="hour"
@@ -125,7 +125,7 @@ export default function MealReport() {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24}>
-          <Card title="订单构成" bordered={false} style={{ borderRadius: 12 }}>
+          <Card title="订单构成" variant="borderless" style={{ borderRadius: 12 }}>
             <Space size="large" wrap>
               <span>
                 <Text type="secondary">会员订单 </Text>
