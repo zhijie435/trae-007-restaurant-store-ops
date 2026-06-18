@@ -1,4 +1,4 @@
-import { Row, Col, Card, Spin, Alert, Typography, Space, Divider, Table } from 'antd';
+import { Row, Col, Card, Spin, Alert, Typography, Space, Divider, Table, Empty } from 'antd';
 import {
   ShoppingOutlined,
   DollarOutlined,
@@ -9,7 +9,9 @@ import {
   MinusOutlined,
   ExclamationCircleOutlined,
   AppstoreOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
+import { Column } from '@ant-design/charts';
 import StatCard from '@/components/StatCard';
 import ReportToolbar from '@/components/ReportToolbar';
 import { useReportData, useReportDate } from '@/hooks/useReport';
@@ -40,6 +42,13 @@ export default function DailyReport() {
   const meal = data?.meal;
   const member = data?.member;
   const inventory = data?.inventory;
+  const hourly = meal?.hourly ?? [];
+
+  const peakHour = hourly.reduce(
+    (acc, cur) => (cur.count > acc.count ? cur : acc),
+    { hour: '-', count: 0, revenue: 0 },
+  );
+  const totalHourRevenue = hourly.reduce((sum, h) => sum + h.revenue, 0);
 
   const mealMemberRatio =
     meal && meal.order_count > 0
@@ -104,8 +113,8 @@ export default function DailyReport() {
       </Row>
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24}>
-          <Card title="菜品销量 Top5" variant="borderless" style={{ borderRadius: 12 }}>
+        <Col xs={24} lg={12}>
+          <Card title="菜品销量 Top5" variant="borderless" style={{ borderRadius: 12, height: '100%' }}>
             <Table<TopDish>
               rowKey="name"
               size="small"
@@ -114,6 +123,60 @@ export default function DailyReport() {
               pagination={false}
               locale={{ emptyText: '暂无出餐数据' }}
             />
+          </Card>
+        </Col>
+        <Col xs={24} lg={12}>
+          <Card
+            title={
+              <Space>
+                <ClockCircleOutlined style={{ color: '#1677ff' }} />
+                <span>订单时段分布（24 小时）</span>
+              </Space>
+            }
+            extra={
+              <Space size="large">
+                <span>
+                  <Text type="secondary">高峰时段 </Text>
+                  <Text strong style={{ color: '#fa8c16' }}>
+                    {peakHour.count > 0 ? peakHour.hour : '-'}
+                  </Text>
+                </span>
+                <span>
+                  <Text type="secondary">时段营收 </Text>
+                  <Text strong style={{ color: '#00857C' }}>
+                    {formatCurrency(totalHourRevenue)}
+                  </Text>
+                </span>
+              </Space>
+            }
+            variant="borderless"
+            style={{ borderRadius: 12, height: '100%' }}
+          >
+            {hourly.length === 0 ? (
+              <Empty description="暂无时段数据" />
+            ) : (
+              <Column
+                data={hourly}
+                xField="hour"
+                yField="count"
+                height={320}
+                color="#1677ff"
+                axis={{
+                  x: { title: false },
+                  y: { title: '订单数' },
+                }}
+                tooltip={{
+                  items: [
+                    { channel: 'y', name: '订单数', valueFormatter: (v: number) => `${v} 单` },
+                    {
+                      field: 'revenue',
+                      name: '营业额',
+                      valueFormatter: (v: number) => formatCurrency(v),
+                    },
+                  ],
+                }}
+              />
+            )}
           </Card>
         </Col>
       </Row>
